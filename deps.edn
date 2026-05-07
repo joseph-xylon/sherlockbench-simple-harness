@@ -1,5 +1,6 @@
 {:paths ["src" "resources"]
- :deps {net.clojars.wkok/openai-clojure {:mvn/version "0.23.0"}}
+ :deps {net.clojars.wkok/openai-clojure {:mvn/version "0.23.0"}
+        selmer/selmer {:mvn/version "1.13.1"}}
 
  :aliases {;; Run with clj -T:build function-in-build
            :build {:deps {io.github.clojure/tools.build {:git/tag "v0.10.13" :git/sha "ae52edf"}}
