@@ -16,12 +16,23 @@
 
     {:api-endpoint (:llm-api config)}))
 
-(defn -main [problem-set & args]
+(defn print-usage []
+  (println
+"Usage:
+
+First argument must be one of:
+- start :: start a test run
+- list  :: list problem-sets
+"))
+
+(defn -main [& args]
   (let [config (read-edn-file "resources/config.edn")]
-    (prn (str "problem-set: " problem-set))
-    (prn (:server-url config))
-    )
-  )
+    (case (first args)
+     "start"  true
+     "list"  true
+     "show_config" (prn (:server-url config))
+     (print-usage))))
+
 
 (comment
   (def config (read-edn-file "resources/config.edn"))
@@ -31,4 +42,6 @@
   (utils/post (:server-url config) nil "start-run" {:client-id "boop"
                                                     :attempts-per-problem 10
                                                     :problem-set "sherlock1/all"})
+  
+  (print-usage)
   )
