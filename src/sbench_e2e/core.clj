@@ -1,6 +1,7 @@
 (ns sbench-e2e.core
   (:require [wkok.openai-clojure.api :as api]
-            [clojure.edn :as edn])
+            [clojure.edn :as edn]
+            [sbench-e2e.utils :as utils])
   (:gen-class))
 
 (defn read-edn-file [file-path]
@@ -26,4 +27,8 @@
   (def config (read-edn-file "resources/config.edn"))
 
   (call-qwen config "Would you love a monsterman?")
+
+  (utils/post (:server-url config) nil "start-run" {:client-id "boop"
+                                                    :attempts-per-problem 10
+                                                    :problem-set "sherlock1/all"})
   )
