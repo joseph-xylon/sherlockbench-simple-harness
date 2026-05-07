@@ -1,0 +1,11 @@
+{:paths ["src" "resources"]
+ :deps {net.clojars.wkok/openai-clojure {:mvn/version "0.23.0"}}
+
+ :aliases {;; Run with clj -T:build function-in-build
+           :build {:deps {io.github.clojure/tools.build {:git/tag "v0.10.13" :git/sha "ae52edf"}}
+                   :ns-default build}
+           :test {:extra-paths ["test"]
+                 :extra-deps {io.github.cognitect-labs/test-runner 
+                              {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
+                 :main-opts ["-m" "cognitect.test-runner"]
+                 :exec-fn cognitect.test-runner.api/test}}}
