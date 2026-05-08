@@ -29,7 +29,7 @@ First argument must be one of:
   (let [config (read-edn-file "resources/config.edn")]
     (case (first args)
      "start"  true
-     "list"  true
+     "list"  (utils/show-config config)
      "show_config" (prn (:server-url config))
      (print-usage))))
 
@@ -44,4 +44,6 @@ First argument must be one of:
                                                     :problem-set "sherlock1/all"})
   
   (print-usage)
+
+  (utils/show-config config)
   )
