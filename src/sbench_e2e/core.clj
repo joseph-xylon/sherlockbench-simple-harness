@@ -42,7 +42,8 @@ First argument must be one of:
       "start" (let [[_ problem-set attempts] args]
                 (if (nil? problem-set)
                   (print-start-usage)
-                  (run-bench/start-run postfn problem-set (or attempts 1))))
+                  (let [run-deets (run-bench/start-run postfn problem-set (or attempts 1))]
+                    (run-bench/main-loop run-deets))))
       "list"  (utils/show-config config)
       "show_config" (prn (:server-url config))
       (print-usage))))

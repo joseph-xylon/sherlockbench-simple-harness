@@ -4,8 +4,12 @@
 (defn start-run [postfn problem-set attempts-per-problem]
   (let [post-data (conj (utils/map-of problem-set attempts-per-problem)
                         {:client-id "sbench_e2e"})
-        {:keys [run-id attempts]} (postfn nil "start-run" post-data)]
+        {:keys [run-id attempts]} (postfn nil "start-run" post-data)
+        postfn' (partial postfn run-id)]
     
-    (println (str "run-id: " run-id))
-    (println attempts-per-problem)
-    ))
+    (println (str "Started new run with id: " run-id))
+    {:run-id run-id :attempts attempts :postfn postfn'}))
+
+(defn main-loop [{:keys [run-id attempts postfn]}]
+  (println "got here"))
+
