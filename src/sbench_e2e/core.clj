@@ -1,7 +1,8 @@
 (ns sbench-e2e.core
   (:require [wkok.openai-clojure.api :as api]
             [clojure.edn :as edn]
-            [sbench-e2e.utils :as utils])
+            [sbench-e2e.utils :as utils]
+            [sbench-e2e.run-bench :as run-bench])
   (:gen-class))
 
 (defn read-edn-file [file-path]
@@ -25,13 +26,26 @@ First argument must be one of:
 - list  :: list problem-sets
 "))
 
+(defn print-start-usage []
+  (println
+"Usage:
+
+\"start\" action requires args:
+- problem-set
+- attempts-per-problem
+"))
+
 (defn -main [& args]
-  (let [config (read-edn-file "resources/config.edn")]
+  (let [config (read-edn-file "resources/config.edn")
+        postfn (partial utils/post (:server-url config))]
     (case (first args)
-     "start"  true
-     "list"  (utils/show-config config)
-     "show_config" (prn (:server-url config))
-     (print-usage))))
+      "start" (let [[_ problem-set attempts] args]
+                (if (nil? problem-set)
+                  (print-start-usage)
+                  (run-bench/start-run postfn problem-set (or attempts 1))))
+      "list"  (utils/show-config config)
+      "show_config" (prn (:server-url config))
+      (print-usage))))
 
 
 (comment
@@ -46,4 +60,6 @@ First argument must be one of:
   (print-usage)
 
   (utils/show-config config)
+
+  (-main "start")
   )
