@@ -10,12 +10,15 @@
    (slurp file-path)))
 
 (defn call-qwen
-  [config prompt]
-  (api/create-chat-completion
-    {:model "qwen3"
-     :messages [{:role "user" :content prompt}]}
+  ([config messages]
+   (call-qwen config messages nil))
+  ([config messages tools]
+   (api/create-chat-completion
+    (conj {:model "qwen3"
+           :messages messages}
+          (if tools {:tools tools} {}))
 
-    {:api-endpoint (:llm-api config)}))
+    {:api-endpoint (:llm-api config)})))
 
 (defn print-usage []
   (println
@@ -43,7 +46,7 @@ First argument must be one of:
                 (if (nil? problem-set)
                   (print-start-usage)
                   (let [run-deets (run-bench/start-run postfn problem-set (or attempts 1))]
-                    (run-bench/main-loop run-deets))))
+                    (run-bench/main-loop (assoc run-deets :llmfn (partial call-qwen config))))))
       "list"  (utils/show-config config)
       "show_config" (prn (:server-url config))
       (print-usage))))
@@ -52,7 +55,7 @@ First argument must be one of:
 (comment
   (def config (read-edn-file "resources/config.edn"))
 
-  (call-qwen config "Would you love a monsterman?")
+  (call-qwen config [{:role "user" :content "Would you love a monsterman?"}])
 
   (utils/post (:server-url config) nil "start-run" {:client-id "boop"
                                                     :attempts-per-problem 10
