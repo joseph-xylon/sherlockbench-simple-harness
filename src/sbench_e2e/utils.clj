@@ -11,7 +11,7 @@
         response (http/post (str base-url path)
                    {:headers {"Content-Type" "application/json"}
                     :body (json/generate-string
-                           data)
+                           data')
                     ; :throw-exceptions false
                     })]
     (if (not= (:status response) 200)
