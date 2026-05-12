@@ -65,5 +65,5 @@ First argument must be one of:
 
   (utils/show-config config)
 
-  (-main "start")
+  (-main "start" "sherlock1/all")
   )
