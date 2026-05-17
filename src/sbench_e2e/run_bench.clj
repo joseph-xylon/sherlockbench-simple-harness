@@ -27,12 +27,12 @@
   (let [arguments (json/parse-string (:arguments (:function call)))
         args-norm (normalise-args arguments)
         fnoutput (:output (postfn "test-function" {:attempt-id attempt-id
-                                                   :args args-norm}))]
-    (prn args-norm)
-    (prn "-> " fnoutput)
-    )
-  
-  )
+                                                      :args args-norm}))]
+    (println args-norm "->" fnoutput)
+
+    {:role "tool"
+     :content (json/generate-string fnoutput)
+     :tool_call_id (:id call)}))
 
 (defn investigation [postfn llmfn messages attempt]
   (let [{:keys [attempt-id arg-spec output-type test-limit attempts-remaining]} attempt
@@ -43,9 +43,15 @@
                                         :properties mapped-args
                                         :required (keys mapped-args)
                                         :additionalProperties false}}}]]
-    (loop [messages messages]
-      (let [{[{{:keys [content tool_calls]} :message} & _] :choices :as completion} (llmfn messages tools)]
-        (handle-tool-call postfn (:attempt-id attempt) arg-spec (first tool_calls))))))
+    (loop [messages messages
+           max-loop 1] ; for testing
+      (prn messages)
+      (let [{[{{:keys [content tool_calls]} :message} & _] :choices :as completion} (llmfn messages tools)
+            tool-message (handle-tool-call postfn (:attempt-id attempt) arg-spec (first tool_calls))]
+        (if (< 0 max-loop)
+          (recur (conj messages tool-message) (- max-loop 1))
+          "loop overflow")
+        ))))
 
 (defn verification [postfn llmfn attempt inv]
   true)
