@@ -55,7 +55,7 @@
 
 (defn main-loop [{:keys [run-id attempts postfn llmfn]}]
   (doseq [attempt [(first attempts)]]
-    (let [messages (prompts/make-initial-messages (:test-limit attempts))
+    (let [messages (prompts/make-initial-messages (:test-limit attempt))
           messages' (investigation postfn llmfn messages attempt)]
       (verification postfn llmfn attempt messages')))
   (complete-attempt))
