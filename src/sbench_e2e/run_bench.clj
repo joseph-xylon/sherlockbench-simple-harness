@@ -44,14 +44,15 @@
                                         :required (keys mapped-args)
                                         :additionalProperties false}}}]]
     (loop [messages messages
-           max-loop 1] ; for testing
+           max-loop 2 ; for testing. should be test-limit
+           ]
       (prn messages)
-      (let [{[{{:keys [content tool_calls]} :message} & _] :choices :as completion} (llmfn messages tools)
-            tool-message (handle-tool-call postfn (:attempt-id attempt) arg-spec (first tool_calls))]
-        (if (< 0 max-loop)
-          (recur (conj messages tool-message) (- max-loop 1))
-          "loop overflow")
-        ))))
+      (let [{[{{tool_calls :tool_calls :as assistant-message} :message} & _] :choices} (llmfn messages tools)
+            messages' (conj messages assistant-message)]
+        (if (and (seq tool_calls) (< 0 max-loop))
+          (let [tool-message (handle-tool-call postfn attempt-id arg-spec (first tool_calls))]
+            (recur (conj messages' tool-message) (- max-loop 1)))
+          messages')))))
 
 (defn verification [postfn llmfn attempt inv]
   true)
