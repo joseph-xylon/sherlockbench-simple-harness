@@ -18,7 +18,8 @@
            :messages messages}
           (if tools {:tools tools} {}))
 
-    {:api-endpoint (:llm-api config)})))
+    {:api-endpoint (:llm-api config)
+     :api-key (:api-key config)})))
 
 (defn print-usage []
   (println
