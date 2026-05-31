@@ -81,12 +81,8 @@
           (print "\n### SYSTEM: CORRECT\n")
           true)))))
 
-(defn complete-attempt []
-  true)
-
 (defn main-loop [{:keys [run-id attempts postfn llmfn]}]
-  (doseq [attempt [(first attempts)]]
+  (doseq [attempt attempts]
     (let [messages (prompts/make-initial-messages (:test-limit attempt))
           messages' (investigation postfn llmfn messages attempt)]
-      (verification postfn llmfn attempt messages')))
-  (complete-attempt))
+      (verification postfn llmfn attempt messages'))))
