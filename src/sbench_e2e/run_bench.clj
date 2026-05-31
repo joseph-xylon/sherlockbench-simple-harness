@@ -44,7 +44,7 @@
                                         :required (keys mapped-args)
                                         :additionalProperties false}}}]]
     (loop [messages messages
-           max-loop 2 ; test-limit
+           max-loop test-limit
            ]
       (prn messages)
       (let [{[{{tool_calls :tool_calls :as assistant-message} :message} & _] :choices} (llmfn messages tools)
@@ -55,15 +55,31 @@
           messages')))))
 
 (defn verification [postfn llmfn attempt messages]
-  (loop [{:keys [next-verification output-type] :as next} (postfn "next-verification" {:attempt-id (:attempt-id attempt)})
-         verification-formatted (apply merge {} (for [[k v] (list-to-map next-verification)]
-                                                  {k (:type v)}))
-         verification-message (prompts/make-verification-message verification-formatted)
-         ]
-    (print (:content (first verification-message)))
+  (loop []
+    (let [{:keys [next-verification output-type] :as next} (postfn "next-verification" {:attempt-id (:attempt-id attempt)})
+          verification-formatted (apply merge {} (for [[k v] (list-to-map next-verification)]
+                                                   {k (:type v)}))
+          verification-message (prompts/make-verification-message verification-formatted)
+          {[{{json-content :content} :message}] :choices} (llmfn (into messages verification-message))
+          {:keys [thoughts expected_output]} (json/parse-string json-content true)
+          {v-status :status} (postfn "attempt-verification" {:attempt-id (:attempt-id attempt)
+                                                             :prediction expected_output})]
+      (print "\n### SYSTEM: inputs:")
+      (print "\n" verification-formatted)
 
-    )
-  )
+      (case v-status
+        "correct"
+        (do
+          (print "\n### SYSTEM: CORRECT")
+          (recur))
+        "wrong"
+        (do
+          (print "\n### SYSTEM: WRONG\n")
+          false)
+        "done"
+        (do
+          (print "\n### SYSTEM: CORRECT\n")
+          true)))))
 
 (defn complete-attempt []
   true)
