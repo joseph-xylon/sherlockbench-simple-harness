@@ -14,7 +14,7 @@
    (call-qwen config messages nil))
   ([config messages tools]
    (api/create-chat-completion
-    (conj {:model "qwen3"
+    (conj {:model (:model config)
            :messages messages}
           (if tools {:tools tools} {}))
 
@@ -48,7 +48,7 @@ First argument must be one of:
                   (print-start-usage)
                   (let [run-deets (run-bench/start-run postfn problem-set (or attempts 1))]
                     (run-bench/main-loop (assoc run-deets :llmfn (partial call-qwen config)))
-                    (print ((:postfn run-deets) "complete-run" {:run-id (:run-id run-deets)})))))
+                    (run-bench/complete-run (:postfn run-deets) (:run-id run-deets) (:model config)))))
       "list"  (utils/show-config config)
       "show_config" (prn (:server-url config))
       (print-usage))))

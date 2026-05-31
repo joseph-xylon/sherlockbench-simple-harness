@@ -28,7 +28,8 @@
         args-norm (normalise-args arguments)
         fnoutput (:output (postfn "test-function" {:attempt-id attempt-id
                                                       :args args-norm}))]
-    (println args-norm "->" fnoutput)
+    (println "\n### SYSTEM: calling tool")
+    (println (str "  " (utils/py-tuple args-norm) " → " (utils/py-str fnoutput)))
 
     {:role "tool"
      :content (json/generate-string fnoutput)
@@ -43,46 +44,65 @@
                                         :properties mapped-args
                                         :required (keys mapped-args)
                                         :additionalProperties false}}}]]
+    (println (str "\n### SYSTEM: interrogating function with args " (utils/py-str (vec arg-spec))))
     (loop [messages messages
            max-loop test-limit
-           ]
-      (prn messages)
-      (let [{[{{tool_calls :tool_calls :as assistant-message} :message} & _] :choices} (llmfn messages tools)
+           tool-count 0]
+      (let [{[{{tool_calls :tool_calls content :content :as assistant-message} :message} & _] :choices} (llmfn messages tools)
             messages' (conj messages assistant-message)]
+        (println "\n--- LLM ---")
+        (when (seq content) (utils/print-indented content))
         (if (and (seq tool_calls) (< 0 max-loop))
           (let [tool-message (handle-tool-call postfn attempt-id arg-spec (first tool_calls))]
-            (recur (conj messages' tool-message) (- max-loop 1)))
-          messages')))))
+            (recur (conj messages' tool-message) (- max-loop 1) (inc tool-count)))
+          (do
+            (println (str "\n### SYSTEM: The tool was used " tool-count " times."))
+            messages'))))))
 
 (defn verification [postfn llmfn attempt messages]
-  (loop []
-    (let [{:keys [next-verification output-type] :as next} (postfn "next-verification" {:attempt-id (:attempt-id attempt)})
-          verification-formatted (apply merge {} (for [[k v] (list-to-map next-verification)]
-                                                   {k (:type v)}))
-          verification-message (prompts/make-verification-message verification-formatted)
-          {[{{json-content :content} :message}] :choices} (llmfn (into messages verification-message))
-          {:keys [thoughts expected_output]} (json/parse-string json-content true)
-          {v-status :status} (postfn "attempt-verification" {:attempt-id (:attempt-id attempt)
-                                                             :prediction expected_output})]
-      (print "\n### SYSTEM: inputs:")
-      (print "\n" verification-formatted)
+  (let [{:keys [arg-spec attempt-id]} attempt]
+    (println (str "\n### SYSTEM: verifying function with args " (utils/py-str (vec arg-spec))))
+    (loop []
+      (let [{:keys [next-verification output-type] :as next} (postfn "next-verification" {:attempt-id attempt-id})
+            verification-formatted (apply merge {} (for [[k v] (list-to-map next-verification)]
+                                                     {k (:type v)}))
+            verification-message (prompts/make-verification-message verification-formatted)
+            {[{{json-content :content} :message}] :choices} (llmfn (into messages verification-message))
+            {:keys [thoughts expected_output]} (json/parse-string json-content true)
+            {v-status :status} (postfn "attempt-verification" {:attempt-id attempt-id
+                                                               :prediction expected_output})]
+        (println "\n### SYSTEM: inputs:")
+        (println (str "  " (utils/py-str verification-formatted)))
+        (println "\n--- LLM ---")
+        (when (seq thoughts) (utils/print-indented thoughts))
+        (println (str "\n  `" expected_output "`"))
 
-      (case v-status
-        "correct"
-        (do
-          (print "\n### SYSTEM: CORRECT")
-          (recur))
-        "wrong"
-        (do
-          (print "\n### SYSTEM: WRONG\n")
-          false)
-        "done"
-        (do
-          (print "\n### SYSTEM: CORRECT\n")
-          true)))))
+        (case v-status
+          "correct"
+          (do
+            (println "\n### SYSTEM: CORRECT")
+            (recur))
+          "wrong"
+          (do
+            (println "\n### SYSTEM: WRONG")
+            false)
+          "done"
+          (do
+            (println "\n### SYSTEM: CORRECT")
+            true))))))
+
+(defn complete-run [postfn run-id model]
+  (let [{:keys [score percent]} (postfn "complete-run" {})
+        {:keys [numerator denominator]} score]
+    (println (str "\n### SYSTEM: run complete for model `" model "`."))
+    (println (str "\nRun id: " run-id))
+    (println (str "\nFinal score: " numerator "/" denominator
+                  " (" (Math/round (double percent)) "%)"))))
 
 (defn main-loop [{:keys [run-id attempts postfn llmfn]}]
-  (doseq [attempt attempts]
-    (let [messages (prompts/make-initial-messages (:test-limit attempt))
-          messages' (investigation postfn llmfn messages attempt)]
-      (verification postfn llmfn attempt messages'))))
+  (let [total (count attempts)]
+    (doseq [[idx attempt] (map-indexed vector attempts)]
+      (println (str "\n### SYSTEM: Starting attempt " (inc idx) "/" total))
+      (let [messages (prompts/make-initial-messages (:test-limit attempt))
+            messages' (investigation postfn llmfn messages attempt)]
+        (verification postfn llmfn attempt messages')))))

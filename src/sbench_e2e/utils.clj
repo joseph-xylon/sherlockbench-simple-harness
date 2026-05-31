@@ -1,6 +1,7 @@
 (ns sbench-e2e.utils
   (:require [clj-http.client :as http]
             [cheshire.core :as json]
+            [clojure.string :as str]
             [selmer.util :as selmer-util]))
 
 (selmer-util/turn-off-escaping!)
@@ -23,7 +24,7 @@
         (throw (Exception. (str "Got status " (:status response)))))
       (json/parse-string (:body response) true))))
 
-(defn get [base-url path]
+(defn http-get [base-url path]
   (let [response (http/get (str base-url path) {})]
     (if (not= (:status response) 200)
       (do
@@ -31,8 +32,33 @@
         (throw (Exception. (str "Got status " (:status response)))))
       (json/parse-string (:body response) true))))
 
+(defn py-str
+  "Render a value Python-repr style, for human-readable logging."
+  [v]
+  (cond
+    (string? v)  (str "'" v "'")
+    (keyword? v) (str "'" (name v) "'")
+    (map? v)     (str "{"
+                      (str/join ", "
+                                (for [[k val] (sort-by (comp str key) v)]
+                                  (str (py-str (if (keyword? k) (name k) k)) ": " (py-str val))))
+                      "}")
+    (sequential? v) (str "[" (str/join ", " (map py-str v)) "]")
+    :else        (str v)))
+
+(defn py-tuple
+  "Render a sequence of values as a Python-style tuple: (a, b, c)."
+  [vs]
+  (str "(" (str/join ", " (map py-str vs)) ")"))
+
+(defn print-indented
+  "Print each line of s indented by two spaces."
+  [s]
+  (doseq [line (str/split-lines (str s))]
+    (println (str "  " line))))
+
 (defn show-config [config]
-  (let [{categories :problem-sets} (get (:server-url config) "problem-sets")]
+  (let [{categories :problem-sets} (http-get (:server-url config) "problem-sets")]
     (println
 "Available problem sets:
 =======================")
