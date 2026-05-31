@@ -44,7 +44,7 @@
                                         :required (keys mapped-args)
                                         :additionalProperties false}}}]]
     (loop [messages messages
-           max-loop 2 ; for testing. should be test-limit
+           max-loop 2 ; test-limit
            ]
       (prn messages)
       (let [{[{{tool_calls :tool_calls :as assistant-message} :message} & _] :choices} (llmfn messages tools)
@@ -54,8 +54,16 @@
             (recur (conj messages' tool-message) (- max-loop 1)))
           messages')))))
 
-(defn verification [postfn llmfn attempt inv]
-  true)
+(defn verification [postfn llmfn attempt messages]
+  (loop [{:keys [next-verification output-type] :as next} (postfn "next-verification" {:attempt-id (:attempt-id attempt)})
+         verification-formatted (apply merge {} (for [[k v] (list-to-map next-verification)]
+                                                  {k (:type v)}))
+         verification-message (prompts/make-verification-message verification-formatted)
+         ]
+    (print (:content (first verification-message)))
+
+    )
+  )
 
 (defn complete-attempt []
   true)

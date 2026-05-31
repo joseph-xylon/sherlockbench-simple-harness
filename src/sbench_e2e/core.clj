@@ -67,4 +67,12 @@ First argument must be one of:
   (utils/show-config config)
 
   (-main "start" "sherlock1/all")
+
+  (let [config (read-edn-file "resources/config.edn")
+        postfn (partial utils/post (:server-url config))
+        run-deets (run-bench/start-run postfn "sherlock1/all" 1)
+        postfn' (partial postfn (:run-id run-deets))]
+    (postfn' "next-verification" {:attempt-id (:attempt-id (first (:attempts run-deets)))})
+      )
+  
   )

@@ -1,6 +1,9 @@
 (ns sbench-e2e.utils
   (:require [clj-http.client :as http]
-            [cheshire.core :as json]))
+            [cheshire.core :as json]
+            [selmer.util :as selmer-util]))
+
+(selmer-util/turn-off-escaping!)
 
 (defmacro map-of
   [& xs]
