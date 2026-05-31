@@ -4,7 +4,7 @@
             [cheshire.core :as json]))
 
 (defn start-run [postfn problem-set attempts-per-problem]
-  (let [post-data (conj (utils/map-of problem-set attempts-per-problem)
+  (let [post-data (conj (utils/map-of problem-set (Integer/parseInt attempts-per-problem))
                         {:client-id "sbench_e2e"})
         {:keys [run-id attempts]} (postfn nil "start-run" post-data)
         postfn' (partial postfn run-id)]
