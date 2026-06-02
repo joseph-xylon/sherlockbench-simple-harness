@@ -49,7 +49,7 @@
     (loop [messages messages
            max-loop test-limit
            tool-count 0]
-      (let [{[{{tool_calls :tool_calls content :content :as assistant-message} :message} & _] :choices} (llmfn messages tools)
+      (let [{[{{tool_calls :tool_calls content :content :as assistant-message} :message} & _] :choices} (llmfn messages {:tools tools})
             messages' (conj messages assistant-message)]
         (println "\n--- LLM ---")
         (when (seq content) (utils/print-indented content))
@@ -68,7 +68,9 @@
             verification-formatted (apply merge {} (for [[k v] (list-to-map next-verification)]
                                                      {k (:type v)}))
             verification-message (prompts/make-verification-message verification-formatted)
-            {[{{json-content :content} :message}] :choices} (llmfn (into messages verification-message))
+            response-format (prompts/make-prediction-schema output-type)
+            {[{{json-content :content} :message}] :choices} (llmfn (into messages verification-message)
+                                                                   {:response_format response-format})
             {:keys [thoughts expected_output]} (json/parse-string json-content true)
             {v-status :status} (postfn "attempt-verification" {:attempt-id attempt-id
                                                                :prediction expected_output})]

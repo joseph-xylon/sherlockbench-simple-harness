@@ -21,6 +21,28 @@ You may test this function up-to {{ test-limit }} times."
                      {:test-limit test-limit})}
    ])
 
+(def output-type->json-type
+  "Map SherlockBench output types onto JSON Schema types."
+  {"string"  "string"
+   "integer" "integer"
+   "boolean" "boolean"
+   "float"   "number"})
+
+(defn make-prediction-schema
+  "Build a response_format requesting a Prediction object, mirroring the old
+   Python pydantic model: `thoughts` (string) plus `expected_output` typed
+   according to output-type."
+  [output-type]
+  {:type "json_object"
+   :schema {:type "object"
+            :title "Prediction"
+            :description "Prediction of the function output."
+            :required ["thoughts" "expected_output"]
+            :properties {:thoughts {:type "string"
+                                    :title "Thoughts"}
+                         :expected_output {:type (output-type->json-type output-type)
+                                           :title "Expected Output"}}}})
+
 (defn make-verification-message [inputs]
   [{:role "user"
     :content (parser/render "To test your theory, please tell me what is the expected output from the function with this input:

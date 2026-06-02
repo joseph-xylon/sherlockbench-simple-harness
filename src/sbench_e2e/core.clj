@@ -12,11 +12,11 @@
 (defn call-qwen
   ([config messages]
    (call-qwen config messages nil))
-  ([config messages tools]
+  ([config messages extra-params]
    (api/create-chat-completion
-    (conj {:model (:model config)
-           :messages messages}
-          (if tools {:tools tools} {}))
+    (merge {:model (:model config)
+            :messages messages}
+           extra-params)
 
     {:api-endpoint (:llm-api config)
      :api-key (:api-key config)})))
