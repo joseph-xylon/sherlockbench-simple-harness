@@ -49,7 +49,11 @@
     (loop [messages messages
            max-loop test-limit
            tool-count 0]
-      (let [{[{{tool_calls :tool_calls content :content :as assistant-message} :message} & _] :choices} (llmfn messages {:tools tools})
+      (let [{[{{tool_calls :tool_calls content :content :as full-assistant-message} :message} & _] :choices} (llmfn messages {:tools tools})
+            ; we re-build assistant message without reasoning_content, as
+            ; it's not recommended to pass reasoning back into Qwen
+            assistant-message (cond-> {:role "assistant" :content content}
+                                (seq tool_calls) (assoc :tool_calls tool_calls))
             messages' (conj messages assistant-message)]
         (println "\n--- LLM ---")
         (when (seq content) (utils/print-indented content))
