@@ -47,10 +47,12 @@
                                         :additionalProperties false}}}]]
     (println (str "\n### SYSTEM: interrogating function with args " (utils/py-str (vec arg-spec))))
     (loop [messages messages
-           max-loop test-limit
+           max-loop (+ test-limit 2)  ; if the LLM goes over it's test limit,
+                                      ; the server sends back a message to
+                                      ; that effect. We want the LLM to see that.
            tool-count 0]
       (let [{[{{tool_calls :tool_calls content :content :as full-assistant-message} :message} & _] :choices} (llmfn messages {:tools tools})
-            ; we re-build assistant message without reasoning_content, as
+            ; we re-build assistant message without reasoning_content, becas
             ; it's not recommended to pass reasoning back into Qwen
             assistant-message (cond-> {:role "assistant" :content content}
                                 (seq tool_calls) (assoc :tool_calls tool_calls))
