@@ -1,9 +1,29 @@
 (ns sbench-e2e.core
   (:require [wkok.openai-clojure.api :as api]
+            [wkok.openai-clojure.openai :as openai-impl]
+            [martian.core :as martian]
+            [schema.core :as schema]
             [clojure.edn :as edn]
             [sbench-e2e.utils :as utils]
             [sbench-e2e.run-bench :as run-bench])
   (:gen-class))
+
+;; Qwen recommended sampling settings
+(def ^:private temperature 0.6)
+(def ^:private top-p 0.95)
+(def ^:private top-k 20)
+(def ^:private min-p 0)
+
+;; openai-clojure coerces the request body against the bundled OpenAI swagger
+;; spec, which silently strips any params not in the spec (e.g. Qwen's top_k and
+;; min_p). Open up the chat-completion body schema so these pass through.
+(defonce ^:private allow-extra-chat-params
+  (alter-var-root #'openai-impl/m
+                  (fn [m]
+                    (delay
+                     (martian/update-handler @m :create-chat-completion
+                                             update-in [:body-schema :body]
+                                             assoc schema/Any schema/Any)))))
 
 (defn read-edn-file [file-path]
   (edn/read-string
@@ -15,7 +35,11 @@
   ([config messages extra-params]
    (api/create-chat-completion
     (merge {:model (:model config)
-            :messages messages}
+            :messages messages
+            :temperature temperature
+            :top_p top-p
+            :top_k top-k
+            :min_p min-p}
            extra-params)
 
     {:api-endpoint (:llm-api config)
