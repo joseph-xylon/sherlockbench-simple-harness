@@ -60,8 +60,8 @@
         (println "\n--- LLM ---")
         (when (seq content) (utils/print-indented content))
         (if (and (seq tool_calls) (< 0 max-loop))
-          (let [tool-message (handle-tool-call postfn attempt-id arg-spec (first tool_calls))]
-            (recur (conj messages' tool-message) (- max-loop 1) (inc tool-count)))
+          (let [tool-messages (mapv #(handle-tool-call postfn attempt-id arg-spec %) tool_calls)]
+            (recur (into messages' tool-messages) (- max-loop (count tool_calls)) (+ tool-count (count tool_calls))))
           (do
             (println (str "\n### SYSTEM: The tool was used " tool-count " times."))
             messages'))))))
