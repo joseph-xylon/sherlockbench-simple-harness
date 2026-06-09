@@ -1,11 +1,11 @@
-(ns sbench-e2e.core
+(ns sbench-simple-harness.core
   (:require [wkok.openai-clojure.api :as api]
             [wkok.openai-clojure.openai :as openai-impl]
             [martian.core :as martian]
             [schema.core :as schema]
             [clojure.edn :as edn]
-            [sbench-e2e.utils :as utils]
-            [sbench-e2e.run-bench :as run-bench])
+            [sbench-simple-harness.utils :as utils]
+            [sbench-simple-harness.run-bench :as run-bench])
   (:gen-class))
 
 ;; Qwen recommended sampling settings

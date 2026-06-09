@@ -1,4 +1,4 @@
-(ns sbench-e2e.utils
+(ns sbench-simple-harness.utils
   (:require [clj-http.client :as http]
             [cheshire.core :as json]
             [clojure.string :as str]

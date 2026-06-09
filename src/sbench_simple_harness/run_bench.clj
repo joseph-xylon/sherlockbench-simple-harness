@@ -1,6 +1,6 @@
-(ns sbench-e2e.run-bench
-  (:require [sbench-e2e.utils :as utils]
-            [sbench-e2e.prompts :as prompts]
+(ns sbench-simple-harness.run-bench
+  (:require [sbench-simple-harness.utils :as utils]
+            [sbench-simple-harness.prompts :as prompts]
             [cheshire.core :as json]))
 
 (defn start-run [postfn problem-set attempts-per-problem]

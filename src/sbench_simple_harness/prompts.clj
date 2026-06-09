@@ -1,4 +1,4 @@
-(ns sbench-e2e.prompts
+(ns sbench-simple-harness.prompts
   (:require [selmer.parser :as parser]))
 
 (defn make-initial-messages [test-limit]
