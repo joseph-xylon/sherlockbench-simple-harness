@@ -10,6 +10,12 @@ format compatible with DPO.
 
 ## Development
 
+### Run
+```
+clj -M -m sbench-simple-harness.core list
+clj -M -m sbench-simple-harness.core run sherlock1/all 1
+```
+
 ### Compile
 Compile your .jar:
 ```
