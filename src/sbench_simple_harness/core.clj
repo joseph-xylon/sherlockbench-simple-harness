@@ -4,8 +4,10 @@
             [martian.core :as martian]
             [schema.core :as schema]
             [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [sbench-simple-harness.utils :as utils]
             [sbench-simple-harness.run-bench :as run-bench])
+  (:import [java.time Instant])
   (:gen-class))
 
 ;; Qwen recommended sampling settings
@@ -29,11 +31,32 @@
   (edn/read-string
    (slurp file-path)))
 
+(def ^:private max-retries 5)
+
+(defn- log-api-error [attempt exception]
+  (spit "api-errors.log"
+        (str (Instant/now) " retry=" attempt " error=" (.getMessage exception) "\n")
+        :append true))
+
+(defn- call-with-retry [request-params api-opts]
+  (loop [attempt 0]
+    (let [result (try
+                   {:ok (api/create-chat-completion request-params api-opts)}
+                   (catch Exception e {:err e}))]
+      (if-let [err (:err result)]
+        (if (< attempt max-retries)
+          (do
+            (log-api-error (inc attempt) err)
+            (println (str "### SYSTEM: API error (retry " (inc attempt) "/" max-retries "): " (.getMessage err)))
+            (recur (inc attempt)))
+          (throw err))
+        (:ok result)))))
+
 (defn call-qwen
   ([config messages]
    (call-qwen config messages nil))
   ([config messages extra-params]
-   (api/create-chat-completion
+   (call-with-retry
     (merge {:model (:model config)
             :messages messages
             :temperature temperature
@@ -41,7 +64,6 @@
             :top_k top-k
             :min_p min-p}
            extra-params)
-
     {:api-endpoint (:llm-api config)
      :api-key (:api-key config)})))
 
