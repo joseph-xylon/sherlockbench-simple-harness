@@ -1,10 +1,7 @@
 (ns sbench-simple-harness.utils
   (:require [clj-http.client :as http]
             [cheshire.core :as json]
-            [clojure.string :as str]
-            [selmer.util :as selmer-util]))
-
-(selmer-util/turn-off-escaping!)
+            [clojure.string :as str]))
 
 (defmacro map-of
   [& xs]

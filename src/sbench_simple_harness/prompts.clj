@@ -1,5 +1,9 @@
 (ns sbench-simple-harness.prompts
-  (:require [selmer.parser :as parser]))
+  (:require [selmer.parser :as parser]
+            [selmer.util :as selmer-util]))
+
+;; These prompts are plain text, never HTML, so disable Selmer's HTML escaping.
+(selmer-util/turn-off-escaping!)
 
 (defn make-initial-messages [test-limit]
   [{:role "system"
