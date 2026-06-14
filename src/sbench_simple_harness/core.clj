@@ -65,7 +65,8 @@
             :min_p min-p}
            extra-params)
     {:api-endpoint (:llm-api config)
-     :api-key (:api-key config)})))
+     :api-key (:api-key config)
+     :request {:timeout 600000}})))
 
 (defn print-usage []
   (println
