@@ -27,8 +27,18 @@
 (defn handle-tool-call [postfn attempt-id arg-spec call]
   (let [arguments (json/parse-string (:arguments (:function call)))
         args-norm (normalise-args arguments)
-        fnoutput (:output (postfn "test-function" {:attempt-id attempt-id
-                                                      :args args-norm}))]
+        fnoutput (try
+                   (:output (postfn "test-function" {:attempt-id attempt-id
+                                                     :args args-norm}))
+                   (catch clojure.lang.ExceptionInfo e
+                     ;; The server returns a 400 with {:error "..."} once the
+                     ;; test limit is exceeded. That message is a signal for the
+                     ;; LLM, not a harness failure: feed it back as the tool
+                     ;; result so the model can make its final decision.
+                     (let [{:keys [status body]} (ex-data e)]
+                       (if (and (= status 400) (:error body))
+                         (:error body)
+                         (throw e)))))]
     (println "\n### SYSTEM: calling tool")
     (println (str "  " (utils/py-tuple args-norm) " → " (utils/py-str fnoutput)))
 

@@ -13,13 +13,12 @@
                    {:headers {"Content-Type" "application/json"}
                     :body (json/generate-string
                            data')
-                    ; :throw-exceptions false
-                    })]
+                    :throw-exceptions false})
+        body (json/parse-string (:body response) true)]  ; true means keywords
     (if (not= (:status response) 200)
-      (do
-        (print (json/parse-string (:body response) true))  ; true means keywords
-        (throw (Exception. (str "Got status " (:status response)))))
-      (json/parse-string (:body response) true))))
+      (throw (ex-info (str "Got status " (:status response))
+                      {:status (:status response) :body body}))
+      body)))
 
 (defn http-get [base-url path]
   (let [response (http/get (str base-url path) {})]
