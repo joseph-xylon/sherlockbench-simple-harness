@@ -15,6 +15,7 @@
 (def ^:private top-p 0.95)
 (def ^:private top-k 20)
 (def ^:private min-p 0)
+(def ^:private dry-multiplier 0.6)
 
 ;; openai-clojure coerces the request body against the bundled OpenAI swagger
 ;; spec, which silently strips any params not in the spec (e.g. Qwen's top_k and
@@ -62,7 +63,8 @@
             :temperature temperature
             :top_p top-p
             :top_k top-k
-            :min_p min-p}
+            :min_p min-p
+            :dry_multiplier dry-multiplier}
            extra-params)
     {:api-endpoint (:llm-api config)
      :api-key (:api-key config)
