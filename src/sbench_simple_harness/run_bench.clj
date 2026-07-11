@@ -87,9 +87,9 @@
                                 (seq tool_calls) (assoc :tool_calls tool_calls)
                                 keep-reasoning? (assoc :reasoning_content reasoning_content))
             messages' (conj messages assistant-message)]
-        (when (seq reasoning_content)
-          (println (str "\n### SYSTEM: reasoning_content: " (count reasoning_content) " chars")))
-        (println "\n--- LLM ---")
+        (println (str "\n--- LLM ---"
+                      (when (seq reasoning_content)
+                        (str " (reasoning: " (count reasoning_content) " chars)"))))
         (when (seq content) (utils/print-indented content))
         (if (and (seq tool_calls) (< 0 max-loop))
           (let [tool-messages (mapv #(handle-tool-call postfn attempt-id arg-spec %) tool_calls)]
@@ -115,9 +115,9 @@
                                                                :prediction expected_output})]
         (println "\n### SYSTEM: inputs:")
         (println (str "  " (utils/py-str verification-formatted)))
-        (when (seq v-reasoning)
-          (println (str "\n### SYSTEM: reasoning_content: " (count v-reasoning) " chars")))
-        (println "\n--- LLM ---")
+        (println (str "\n--- LLM ---"
+                      (when (seq v-reasoning)
+                        (str " (reasoning: " (count v-reasoning) " chars)"))))
         (when (seq thoughts) (utils/print-indented thoughts))
         (println (str "\n  `" expected_output "`"))
 
@@ -143,11 +143,37 @@
     (println (str "\nFinal score: " numerator "/" denominator
                   " (" (Math/round (double percent)) "%)"))))
 
+(defn- recording-llmfn
+  "Wraps llmfn to capture each call as a prompt/completion pair in `records`.
+   The response message is kept verbatim (reasoning_content, tool_calls)
+   because investigation rebuilds assistant messages without reasoning; the
+   record preserves exactly what the model saw and produced."
+  [llmfn records]
+  (fn [messages extra-params]
+    (let [response (llmfn messages extra-params)]
+      (swap! records conj {:messages messages
+                           :params extra-params
+                           :response (-> response :choices first :message)})
+      response)))
+
+(defn- save-trajectory [file run-id attempt-id records]
+  (doseq [r records]
+    (spit file
+          (str (json/generate-string (assoc r :run-id run-id :attempt-id attempt-id)) "\n")
+          :append true))
+  (println (str "\n### SYSTEM: saved " (count records) " records to " file)))
+
 (defn main-loop [{:keys [run-id attempts postfn llmfn prompt-config interleaved-thinking]}]
-  (let [total (count attempts)]
+  (let [total (count attempts)
+        trajectory-file (str "trajectories-"
+                             (.format (java.time.format.DateTimeFormatter/ofPattern "yyyyMMdd-HHmmss")
+                                      (java.time.LocalDateTime/now))
+                             ".jsonl")]
     (doseq [[idx attempt] (map-indexed vector attempts)]
       (println (str "\n### SYSTEM: Starting attempt " (inc idx) "/" total))
-      (let [messages (prompts/make-initial-messages (:test-limit attempt) prompt-config)
-            messages' (investigation postfn llmfn messages attempt
+      (let [records (atom [])
+            messages (prompts/make-initial-messages (:test-limit attempt) prompt-config)
+            messages' (investigation postfn (recording-llmfn llmfn records) messages attempt
                                      {:interleaved-thinking interleaved-thinking})]
-        (verification postfn llmfn attempt messages')))))
+        (when (verification postfn llmfn attempt messages')
+          (save-trajectory trajectory-file run-id (:attempt-id attempt) @records))))))
