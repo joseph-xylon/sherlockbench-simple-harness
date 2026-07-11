@@ -95,12 +95,12 @@ First argument must be one of:
       "start" (let [[_ problem-set attempts] args]
                 (if (nil? problem-set)
                   (print-start-usage)
-                  (let [run-deets (run-bench/start-run postfn problem-set (or attempts 1))]
-                    (run-bench/main-loop (assoc run-deets
-                                                :llmfn (partial call-qwen config)
-                                                :prompt-config (:prompt config)
-                                                :interleaved-thinking (:interleaved-thinking config)))
-                    (run-bench/complete-run (:postfn run-deets) (:run-id run-deets) (:model config)))))
+                  (let [run-deets (run-bench/start-run postfn problem-set (or attempts 1))
+                        results (run-bench/main-loop (assoc run-deets
+                                                            :llmfn (partial call-qwen config)
+                                                            :prompt-config (:prompt config)
+                                                            :interleaved-thinking (:interleaved-thinking config)))]
+                    (run-bench/complete-run (:postfn run-deets) (:run-id run-deets) (:model config) results))))
       "list"  (utils/show-config config)
       "show_config" (prn (:server-url config))
       (print-usage))))

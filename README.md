@@ -16,3 +16,10 @@ Compile your .jar:
 ```
 clj -T:build uber
 ```
+
+## Run stats
+Completed runs append per-attempt results to `run-stats.edn`. Print
+per-function success rates for one or more runs (requires babashka):
+```
+scripts/run-stats <run-id> [run-id ...]
+```

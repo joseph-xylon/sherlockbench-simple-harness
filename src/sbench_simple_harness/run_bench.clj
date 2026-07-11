@@ -1,7 +1,8 @@
 (ns sbench-simple-harness.run-bench
   (:require [sbench-simple-harness.utils :as utils]
             [sbench-simple-harness.prompts :as prompts]
-            [cheshire.core :as json]))
+            [cheshire.core :as json])
+  (:import [java.time Instant]))
 
 (defn start-run [postfn problem-set attempts-per-problem]
   (let [post-data (conj {:problem-set problem-set
@@ -135,19 +136,41 @@
             (println "\n### SYSTEM: CORRECT")
             true))))))
 
-(defn complete-run [postfn run-id model]
-  (let [{:keys [score percent]} (postfn "complete-run" {})
+(defn save-run-stats
+  "Append one EDN map per attempt to run-stats.edn. Function names only become
+   known from the complete-run response (problem-names)."
+  [run-id model results problem-names]
+  (let [fn-name (into {} (map (juxt :id :function_name) problem-names))]
+    (doseq [{:keys [attempt-id result]} results]
+      (spit "run-stats.edn"
+            (str (pr-str {:timestamp (str (Instant/now))
+                          :run-id run-id
+                          :model model
+                          :function-name (fn-name attempt-id)
+                          :result result})
+                 "\n")
+            :append true))))
+
+(defn complete-run [postfn run-id model results]
+  (let [{:keys [score percent problem-names]} (postfn "complete-run" {})
         {:keys [numerator denominator]} score]
+    (save-run-stats run-id model results problem-names)
     (println (str "\n### SYSTEM: run complete for model `" model "`."))
     (println (str "\nRun id: " run-id))
     (println (str "\nFinal score: " numerator "/" denominator
                   " (" (Math/round (double percent)) "%)"))))
 
-(defn main-loop [{:keys [run-id attempts postfn llmfn prompt-config interleaved-thinking]}]
+(defn main-loop
+  "Run all attempts and return a vector of {:attempt-id ... :result bool}."
+  [{:keys [run-id attempts postfn llmfn prompt-config interleaved-thinking]}]
   (let [total (count attempts)]
-    (doseq [[idx attempt] (map-indexed vector attempts)]
-      (println (str "\n### SYSTEM: Starting attempt " (inc idx) "/" total))
-      (let [messages (prompts/make-initial-messages (:test-limit attempt) prompt-config)
-            messages' (investigation postfn llmfn messages attempt
-                                     {:interleaved-thinking interleaved-thinking})]
-        (verification postfn llmfn attempt messages')))))
+    (vec
+     (map-indexed
+      (fn [idx attempt]
+        (println (str "\n### SYSTEM: Starting attempt " (inc idx) "/" total))
+        (let [messages (prompts/make-initial-messages (:test-limit attempt) prompt-config)
+              messages' (investigation postfn llmfn messages attempt
+                                       {:interleaved-thinking interleaved-thinking})]
+          {:attempt-id (:attempt-id attempt)
+           :result (verification postfn llmfn attempt messages')}))
+      attempts))))

@@ -1,0 +1,53 @@
+#!/usr/bin/env bb
+;; Print per-function success stats for one or more run-ids, read from the
+;; run-stats.edn file that the harness appends to on complete-run.
+(require '[clojure.edn :as edn]
+         '[clojure.java.io :as io]
+         '[clojure.string :as str])
+
+(def stats-file
+  (io/file (-> *file* io/file .getAbsoluteFile .getParentFile .getParentFile)
+           "run-stats.edn"))
+
+(when (empty? *command-line-args*)
+  (println "Usage: run-stats <run-id> [run-id ...]")
+  (System/exit 1))
+
+(when-not (.exists stats-file)
+  (println (str "No stats file found at " stats-file))
+  (System/exit 1))
+
+(def rows
+  (let [run-ids (set *command-line-args*)]
+    (->> (line-seq (io/reader stats-file))
+         (remove str/blank?)
+         (map edn/read-string)
+         (filter #(run-ids (:run-id %))))))
+
+(when (empty? rows)
+  (println "No records found for the given run-id(s).")
+  (System/exit 1))
+
+(defn pct [n d] (str (Math/round (* 100.0 (/ n d))) "%"))
+
+(let [by-fn (->> (group-by :function-name rows)
+                 (map (fn [[fname recs]]
+                        {:name fname
+                         :success (count (filter :result recs))
+                         :total (count recs)}))
+                 (sort-by :name))
+      fmt "%-40s%10s%13s%16s"
+      sep (apply str (repeat 85 "-"))
+      successes (reduce + (map :success by-fn))
+      total (reduce + (map :total by-fn))
+      k (apply max (map :total by-fn))
+      solved (count (filter #(pos? (:success %)) by-fn))]
+  (println (format fmt "Function Name" "Success" "Total" "Success Rate"))
+  (println sep)
+  (doseq [{:keys [name success total]} by-fn]
+    (println (format fmt name success total (pct success total))))
+  (println sep)
+  (println (format fmt "TOTAL" successes total ""))
+  (println)
+  (println (str "Over-all score: " (pct successes total)))
+  (println (str "pass@" k ": " (pct solved (count by-fn)))))
