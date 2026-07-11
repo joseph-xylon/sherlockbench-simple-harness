@@ -39,10 +39,22 @@
         (str (Instant/now) " retry=" attempt " error=" (.getMessage exception) "\n")
         :append true))
 
+(defn- check-finish-reason
+  "A finish_reason other than stop/tool_calls means the completion is unusable
+   (e.g. \"length\" = truncated); throw so call-with-retry treats it as a
+   failed call."
+  [response]
+  (let [finish-reason (-> response :choices first :finish_reason)]
+    (if (contains? #{"stop" "tool_calls"} finish-reason)
+      response
+      (throw (ex-info (str "unusable finish_reason: " finish-reason)
+                      {:finish_reason finish-reason})))))
+
 (defn- call-with-retry [request-params api-opts]
   (loop [attempt 0]
     (let [result (try
-                   {:ok (api/create-chat-completion request-params api-opts)}
+                   {:ok (check-finish-reason
+                         (api/create-chat-completion request-params api-opts))}
                    (catch Exception e {:err e}))]
       (if-let [err (:err result)]
         (if (< attempt max-retries)
