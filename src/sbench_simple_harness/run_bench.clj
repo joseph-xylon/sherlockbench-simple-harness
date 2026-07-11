@@ -11,7 +11,7 @@
         postfn' (partial postfn run-id)]
     
     (println (str "Started new run with id: " run-id))
-    {:run-id run-id :attempts attempts :postfn postfn'}))
+    {:run-id run-id :attempts attempts :postfn postfn' :problem-set problem-set}))
 
 (defn list-to-map
   "openai doesn't like arrays much so just assign alphabetical keys"
@@ -163,11 +163,10 @@
           :append true))
   (println (str "\n### SYSTEM: saved " (count records) " records to " file)))
 
-(defn main-loop [{:keys [run-id attempts postfn llmfn prompt-config interleaved-thinking]}]
+(defn main-loop [{:keys [run-id attempts postfn llmfn prompt-config interleaved-thinking problem-set]}]
   (let [total (count attempts)
         trajectory-file (str "trajectories-"
-                             (.format (java.time.format.DateTimeFormatter/ofPattern "yyyyMMdd-HHmmss")
-                                      (java.time.LocalDateTime/now))
+                             (clojure.string/replace problem-set "/" "_")
                              ".jsonl")]
     (doseq [[idx attempt] (map-indexed vector attempts)]
       (println (str "\n### SYSTEM: Starting attempt " (inc idx) "/" total))

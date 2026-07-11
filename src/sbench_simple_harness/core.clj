@@ -77,6 +77,7 @@
             :top_k top-k
             :min_p min-p
             :presence_penalty presence-penalty}
+           (when-let [slot (:slot config)] {:id_slot slot})
            extra-params)
     {:api-endpoint (:llm-api config)
      :api-key (:api-key config)
@@ -87,27 +88,41 @@
 "Usage:
 
 First argument must be one of:
-- start :: start a test run
+- start :: start a test run (optional second arg: attempts-per-problem)
 - list  :: list problem-sets
+
+Optional flags (any action):
+- --config <file> :: merge this edn file over resources/config.edn
+- --slot <n>      :: pin requests to a llama-server slot (id_slot)
 "))
 
 (defn print-start-usage []
   (println
 "Usage:
 
-\"start\" action requires args:
-- problem-set
-- attempts-per-problem
+\"start\" action requires :problem-set in config.
+Optional second arg: attempts-per-problem (default 1)
 "))
 
+(defn- parse-flag
+  "Pull `<flag> <value>` out of args; returns [value remaining-args]."
+  [flag args]
+  (let [[before [_ value & after]] (split-with #(not= flag %) args)]
+    [value (concat before after)]))
+
 (defn -main [& args]
-  (let [config (read-edn-file "resources/config.edn")
+  (let [[config-path args] (parse-flag "--config" args)
+        [slot args] (parse-flag "--slot" args)
+        config (cond-> (read-edn-file "resources/config.edn")
+                 config-path (merge (read-edn-file config-path))
+                 slot (assoc :slot (Integer/parseInt slot)))
         postfn (partial utils/post (:server-url config))]
     (case (first args)
-      "start" (let [[_ problem-set attempts] args]
+      "start" (let [[_ attempts] args
+                    problem-set (:problem-set config)]
                 (if (nil? problem-set)
                   (print-start-usage)
-                  (let [run-deets (run-bench/start-run postfn problem-set (or attempts 1))]
+                  (let [run-deets (run-bench/start-run postfn problem-set (or attempts "1"))]
                     (run-bench/main-loop (assoc run-deets
                                                 :llmfn (partial call-qwen config)
                                                 :prompt-config (:prompt config)
