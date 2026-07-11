@@ -118,10 +118,10 @@
     (println (str "\nFinal score: " numerator "/" denominator
                   " (" (Math/round (double percent)) "%)"))))
 
-(defn main-loop [{:keys [run-id attempts postfn llmfn]}]
+(defn main-loop [{:keys [run-id attempts postfn llmfn prompt-config]}]
   (let [total (count attempts)]
     (doseq [[idx attempt] (map-indexed vector attempts)]
       (println (str "\n### SYSTEM: Starting attempt " (inc idx) "/" total))
-      (let [messages (prompts/make-initial-messages (:test-limit attempt))
+      (let [messages (prompts/make-initial-messages (:test-limit attempt) prompt-config)
             messages' (investigation postfn llmfn messages attempt)]
         (verification postfn llmfn attempt messages')))))
