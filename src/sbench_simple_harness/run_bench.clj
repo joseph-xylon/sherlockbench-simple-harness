@@ -88,9 +88,9 @@
                                 (seq tool_calls) (assoc :tool_calls tool_calls)
                                 keep-reasoning? (assoc :reasoning_content reasoning_content))
             messages' (conj messages assistant-message)]
-        (when (seq reasoning_content)
-          (println (str "\n### SYSTEM: reasoning_content: " (count reasoning_content) " chars")))
-        (println "\n--- LLM ---")
+        (println (str "\n--- LLM ---"
+                      (when (seq reasoning_content)
+                        (str " (reasoning: " (count reasoning_content) " chars)"))))
         (when (seq content) (utils/print-indented content))
         (if (and (seq tool_calls) (< 0 max-loop))
           (let [tool-messages (mapv #(handle-tool-call postfn attempt-id arg-spec %) tool_calls)]
