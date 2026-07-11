@@ -46,7 +46,17 @@
      :content (json/generate-string fnoutput)
      :tool_call_id (:id call)}))
 
-(defn investigation [postfn llmfn messages attempt]
+(defn- tool-call-round?
+  "True when every message since the last user message belongs to an
+   uninterrupted tool-calling round: assistant messages that made tool calls
+   without any text content, plus their tool responses."
+  [messages]
+  (every? (fn [{:keys [role content tool_calls]}]
+            (or (= role "tool")
+                (and (= role "assistant") (seq tool_calls) (empty? content))))
+          (take-while #(not= "user" (:role %)) (rseq messages))))
+
+(defn investigation [postfn llmfn messages attempt {:keys [interleaved-thinking]}]
   (let [{:keys [attempt-id arg-spec output-type test-limit attempts-remaining]} attempt
         mapped-args (list-to-map arg-spec)
         tools [{:type "function",
@@ -61,12 +71,24 @@
                                       ; the server sends back a message to
                                       ; that effect. We want the LLM to see that.
            tool-count 0]
-      (let [{[{{tool_calls :tool_calls content :content :as full-assistant-message} :message} & _] :choices} (llmfn messages {:tools tools})
+      (let [{[{{tool_calls :tool_calls content :content
+                reasoning_content :reasoning_content} :message} & _] :choices} (llmfn messages {:tools tools})
             ; we re-build assistant message without reasoning_content, becas
-            ; it's not recommended to pass reasoning back into Qwen
+            ; it's not recommended to pass reasoning back into Qwen. With
+            ; :interleaved-thinking we keep it while the round is purely tool
+            ; calls (no assistant text since the last user message), so the
+            ; chain of thought carries across tool results.
+            keep-reasoning? (and interleaved-thinking
+                                 (seq tool_calls)
+                                 (empty? content)
+                                 (seq reasoning_content)
+                                 (tool-call-round? messages))
             assistant-message (cond-> {:role "assistant" :content content}
-                                (seq tool_calls) (assoc :tool_calls tool_calls))
+                                (seq tool_calls) (assoc :tool_calls tool_calls)
+                                keep-reasoning? (assoc :reasoning_content reasoning_content))
             messages' (conj messages assistant-message)]
+        (when (seq reasoning_content)
+          (println (str "\n### SYSTEM: reasoning_content: " (count reasoning_content) " chars")))
         (println "\n--- LLM ---")
         (when (seq content) (utils/print-indented content))
         (if (and (seq tool_calls) (< 0 max-loop))
@@ -85,13 +107,16 @@
                                                      {k (:type v)}))
             verification-message (prompts/make-verification-message verification-formatted)
             response-format (prompts/make-prediction-schema output-type)
-            {[{{json-content :content} :message}] :choices} (llmfn (into messages verification-message)
-                                                                   {:response_format response-format})
+            {[{{json-content :content
+                v-reasoning :reasoning_content} :message}] :choices} (llmfn (into messages verification-message)
+                                                                            {:response_format response-format})
             {:keys [thoughts expected_output]} (json/parse-string json-content true)
             {v-status :status} (postfn "attempt-verification" {:attempt-id attempt-id
                                                                :prediction expected_output})]
         (println "\n### SYSTEM: inputs:")
         (println (str "  " (utils/py-str verification-formatted)))
+        (when (seq v-reasoning)
+          (println (str "\n### SYSTEM: reasoning_content: " (count v-reasoning) " chars")))
         (println "\n--- LLM ---")
         (when (seq thoughts) (utils/print-indented thoughts))
         (println (str "\n  `" expected_output "`"))
@@ -118,10 +143,11 @@
     (println (str "\nFinal score: " numerator "/" denominator
                   " (" (Math/round (double percent)) "%)"))))
 
-(defn main-loop [{:keys [run-id attempts postfn llmfn prompt-config]}]
+(defn main-loop [{:keys [run-id attempts postfn llmfn prompt-config interleaved-thinking]}]
   (let [total (count attempts)]
     (doseq [[idx attempt] (map-indexed vector attempts)]
       (println (str "\n### SYSTEM: Starting attempt " (inc idx) "/" total))
       (let [messages (prompts/make-initial-messages (:test-limit attempt) prompt-config)
-            messages' (investigation postfn llmfn messages attempt)]
+            messages' (investigation postfn llmfn messages attempt
+                                     {:interleaved-thinking interleaved-thinking})]
         (verification postfn llmfn attempt messages')))))

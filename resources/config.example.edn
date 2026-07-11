@@ -1,0 +1,14 @@
+{:server-url "http://0.0.0.0:3000/api/"
+ :llm-api "http://127.0.0.1:8089/v1"
+ :api-key "sk-1234"
+ :model "qwen3.5:9b"
+
+ ;; Keep reasoning_content in the history while the model is mid tool-calling
+ ;; round (only tool calls with empty content since the last user message).
+ ;; Omit or set false to always strip reasoning, as with Qwen3.
+ :interleaved-thinking true
+
+ ;; System-prompt variant, indices into prompt-variations/identities and
+ ;; prompt-variations/instructions. Omitted keys (or the whole map) default to 0.
+ :prompt {:identity 0 :instructions 0}
+ }

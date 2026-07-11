@@ -10,12 +10,12 @@
   (:import [java.time Instant])
   (:gen-class))
 
-;; Qwen recommended sampling settings
-(def ^:private temperature 0.6)
+;; Qwen3.5 recommended sampling settings (thinking mode, general tasks)
+(def ^:private temperature 1.0)
 (def ^:private top-p 0.95)
 (def ^:private top-k 20)
 (def ^:private min-p 0)
-(def ^:private dry-multiplier 0.6)
+(def ^:private presence-penalty 1.5)
 
 ;; openai-clojure coerces the request body against the bundled OpenAI swagger
 ;; spec, which silently strips any params not in the spec (e.g. Qwen's top_k and
@@ -64,7 +64,7 @@
             :top_p top-p
             :top_k top-k
             :min_p min-p
-            :dry_multiplier dry-multiplier}
+            :presence_penalty presence-penalty}
            extra-params)
     {:api-endpoint (:llm-api config)
      :api-key (:api-key config)
@@ -98,7 +98,8 @@ First argument must be one of:
                   (let [run-deets (run-bench/start-run postfn problem-set (or attempts 1))]
                     (run-bench/main-loop (assoc run-deets
                                                 :llmfn (partial call-qwen config)
-                                                :prompt-config (:prompt config)))
+                                                :prompt-config (:prompt config)
+                                                :interleaved-thinking (:interleaved-thinking config)))
                     (run-bench/complete-run (:postfn run-deets) (:run-id run-deets) (:model config)))))
       "list"  (utils/show-config config)
       "show_config" (prn (:server-url config))
