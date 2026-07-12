@@ -172,7 +172,7 @@
 (defn- save-trajectory
   "Appends records under an inter-process lock: multiple runs may write to
    the same trajectory file concurrently."
-  [file run-id attempt-id records]
+  [file run-id attempt-id success? records]
   (with-open [lock-ch (java.nio.channels.FileChannel/open
                        (java.nio.file.Path/of (str file ".lock") (into-array String []))
                        (into-array java.nio.file.OpenOption
@@ -182,7 +182,7 @@
     (rotate-if-large file)
     (doseq [r records]
       (spit file
-            (str (json/generate-string (assoc r :run-id run-id :attempt-id attempt-id)) "\n")
+            (str (json/generate-string (assoc r :run-id run-id :attempt-id attempt-id :success success?)) "\n")
             :append true)))
   (println (str "\n### SYSTEM: saved " (count records) " records to " file)))
 
@@ -197,5 +197,5 @@
             messages (prompts/make-initial-messages (:test-limit attempt) prompt-config)
             messages' (investigation postfn (recording-llmfn llmfn records) messages attempt
                                      {:interleaved-thinking interleaved-thinking})]
-        (when (verification postfn llmfn attempt messages')
-          (save-trajectory trajectory-file run-id (:attempt-id attempt) @records))))))
+        (let [success? (verification postfn llmfn attempt messages')]
+          (save-trajectory trajectory-file run-id (:attempt-id attempt) success? @records))))))
