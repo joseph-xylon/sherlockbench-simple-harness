@@ -156,11 +156,34 @@
                            :response (-> response :choices first :message)})
       response)))
 
-(defn- save-trajectory [file run-id attempt-id records]
-  (doseq [r records]
-    (spit file
-          (str (json/generate-string (assoc r :run-id run-id :attempt-id attempt-id)) "\n")
-          :append true))
+(def ^:private max-trajectory-bytes (* 50 1024 1024))
+
+(defn- rotate-if-large
+  "When `file` exceeds max-trajectory-bytes, rename it with a timestamp
+   suffix and compress it with xz in the background."
+  [file]
+  (let [f (java.io.File. file)]
+    (when (>= (.length f) max-trajectory-bytes)
+      (let [rotated (str file "." (System/currentTimeMillis))]
+        (.renameTo f (java.io.File. rotated))
+        (.start (ProcessBuilder. ["xz" rotated]))
+        (println (str "\n### SYSTEM: rotated " file " to " rotated ".xz"))))))
+
+(defn- save-trajectory
+  "Appends records under an inter-process lock: multiple runs may write to
+   the same trajectory file concurrently."
+  [file run-id attempt-id records]
+  (with-open [lock-ch (java.nio.channels.FileChannel/open
+                       (java.nio.file.Path/of (str file ".lock") (into-array String []))
+                       (into-array java.nio.file.OpenOption
+                                   [java.nio.file.StandardOpenOption/CREATE
+                                    java.nio.file.StandardOpenOption/WRITE]))
+              _lock (.lock lock-ch)]
+    (rotate-if-large file)
+    (doseq [r records]
+      (spit file
+            (str (json/generate-string (assoc r :run-id run-id :attempt-id attempt-id)) "\n")
+            :append true)))
   (println (str "\n### SYSTEM: saved " (count records) " records to " file)))
 
 (defn main-loop [{:keys [run-id attempts postfn llmfn prompt-config interleaved-thinking problem-set]}]
