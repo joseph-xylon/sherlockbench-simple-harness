@@ -13,5 +13,4 @@
  :prompt {:identity 0 :instructions 0}
 
  :problem-set "sherlock1/all"
- ;; :slot 0
  }
