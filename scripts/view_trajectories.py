@@ -29,7 +29,7 @@ pre{white-space:pre-wrap;word-break:break-word;margin:.3rem 0;font-size:.85rem;f
 .reasoning pre{color:#555;background:#f5f2fb;padding:.5rem;border-radius:4px}
 .toolcall{color:#a05c00}.toolres{color:#555}
 .badge{padding:.1rem .5rem;border-radius:9px;font-size:.75rem;color:#fff;margin-right:.4rem}
-.badge.ok{background:#2e9e5b}.badge.fail{background:#d64545}.badge.unk{background:#999}
+.badge.ok{background:#2e9e5b}.badge.fail{background:#d64545}
 details.attempt{margin:.6rem 0;background:#fff;border:1px solid #ddd;border-radius:8px;padding:.5rem .8rem}
 details.attempt>summary{cursor:pointer;font-weight:600}
 .meta{color:#888;font-weight:400;font-size:.85rem}
@@ -106,10 +106,8 @@ def render_message(m):
 
 def render_attempt(key, recs):
     _, attempt_id = key
-    success = recs[-1].get("success")
-    badge = {True: '<span class="badge ok">success</span>',
-             False: '<span class="badge fail">fail</span>'}.get(
-                 success, '<span class="badge unk">unlabeled</span>')
+    badge = ('<span class="badge ok">success</span>' if recs[-1]["success"]
+             else '<span class="badge fail">fail</span>')
     msgs = conversation(recs)
     ntools = sum(len(m.get("tool_calls") or []) for m in msgs)
     return (f'<details class="attempt"><summary>{badge}attempt {esc(attempt_id)}'
@@ -129,7 +127,7 @@ def main():
              "<h1>Trajectories</h1>"]
     for path in files:
         attempts = group_attempts(load(path))
-        nsuccess = sum(1 for _, recs in attempts if recs[-1].get("success") is not False)
+        nsuccess = sum(1 for _, recs in attempts if recs[-1]["success"])
         parts.append(f"<h2>{esc(path)} <span class='meta'>{nsuccess}/{len(attempts)}"
                      f" attempts successful</span></h2>")
         parts.extend(render_attempt(key, recs) for key, recs in attempts)

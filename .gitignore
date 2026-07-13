@@ -3,4 +3,5 @@
 /target/
 /reqlog/
 /log
+__pycache__/
 config.edn

@@ -88,18 +88,16 @@ record's `messages`.
 
 ## Label semantics
 
-- `success` is the verification verdict for the **entire attempt**, stamped
-  identically on every record of that attempt: `true` = every verification
-  prediction was correct, `false` = a prediction was wrong.
-- Records written before 2026-07-12 lack the `success` key. Only successful
-  attempts were saved back then, so treat a missing key as `true`.
+`success` is always present: the verification verdict for the **entire
+attempt**, stamped identically on every record of that attempt: `true` =
+every verification prediction was correct, `false` = a prediction was wrong.
 
 ## Using it for training
 
 Each record is a ready-made (prompt, completion) example: prompt =
 `messages` (plus the tool definitions in `params`), completion = `response`.
 
-- **SFT**: keep records with `success == true` (or missing). Either train on
+- **SFT**: keep records with `success == true`. Either train on
   every step, or take one example per attempt from the last record to avoid
   over-weighting long trajectories' early context.
 - **KTO**: `success` is the binary desirable/undesirable label. No pairing of
