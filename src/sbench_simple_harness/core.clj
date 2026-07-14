@@ -65,23 +65,59 @@
           (throw err))
         (:ok result)))))
 
+;; llama.cpp speaks reasoning via `reasoning_content` (the field used
+;; internally and in trajectories); OpenRouter uses `reasoning` in both
+;; directions. Translate at the API boundary.
+(defn- openrouter? [config]
+  (clojure.string/includes? (str (:llm-api config)) "openrouter"))
+
+(defn- reasoning->openrouter [messages]
+  (mapv (fn [{:keys [reasoning_content] :as m}]
+          (cond-> (dissoc m :reasoning_content)
+            (seq reasoning_content) (assoc :reasoning reasoning_content)))
+        messages))
+
+(defn- reasoning<-openrouter [response]
+  (update-in response [:choices 0 :message]
+             (fn [{:keys [reasoning] :as m}]
+               (cond-> (dissoc m :reasoning :reasoning_details)
+                 (seq reasoning) (assoc :reasoning_content reasoning)))))
+
+(defn- ->openrouter-request
+  "OpenRouter only enforces schemas via the OpenAI `json_schema`
+   response_format; llama.cpp's `json_object` + `schema` variant is accepted
+   but the schema is silently ignored."
+  [params]
+  (cond-> (update params :messages reasoning->openrouter)
+    (get-in params [:response_format :schema])
+    (update :response_format
+            (fn [{:keys [schema]}]
+              {:type "json_schema"
+               :json_schema {:name (:title schema "response")
+                             :strict true
+                             :schema schema}}))))
+
 (defn call-qwen
   ([config messages]
    (call-qwen config messages nil))
   ([config messages extra-params]
-   (call-with-retry
-    (merge {:model (:model config)
+   (cond-> (call-with-retry
+    (cond-> (merge {:model (:model config)
             :messages messages
             :temperature temperature
             :top_p top-p
             :top_k top-k
             :min_p min-p
-            :presence_penalty presence-penalty}
+            :presence_penalty presence-penalty
+            :reasoning {:enabled true}
+            }
            (when-let [slot (:slot config)] {:id_slot slot})
            extra-params)
+      (openrouter? config) ->openrouter-request)
     {:api-endpoint (:llm-api config)
      :api-key (:api-key config)
-     :request {:timeout 600000}})))
+     :request {:timeout 600000}})
+     (openrouter? config) reasoning<-openrouter)))
 
 (defn print-usage []
   (println
