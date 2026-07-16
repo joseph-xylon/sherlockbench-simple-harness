@@ -47,16 +47,6 @@
      :content (json/generate-string fnoutput)
      :tool_call_id (:id call)}))
 
-(defn- tool-call-round?
-  "True when every message since the last user message belongs to an
-   uninterrupted tool-calling round: assistant messages that made tool calls
-   without any text content, plus their tool responses."
-  [messages]
-  (every? (fn [{:keys [role content tool_calls]}]
-            (or (= role "tool")
-                (and (= role "assistant") (seq tool_calls) (empty? content))))
-          (take-while #(not= "user" (:role %)) (rseq messages))))
-
 (defn investigation [postfn llmfn messages attempt {:keys [interleaved-thinking]}]
   (let [{:keys [attempt-id arg-spec output-type test-limit attempts-remaining]} attempt
         mapped-args (list-to-map arg-spec)
@@ -74,16 +64,12 @@
            tool-count 0]
       (let [{[{{tool_calls :tool_calls content :content
                 reasoning_content :reasoning_content} :message} & _] :choices} (llmfn messages {:tools tools})
-            ; we re-build assistant message without reasoning_content, becas
-            ; it's not recommended to pass reasoning back into Qwen. With
-            ; :interleaved-thinking we keep it while the round is purely tool
-            ; calls (no assistant text since the last user message), so the
-            ; chain of thought carries across tool results.
+            ; with :interleaved-thinking we pass reasoning back so the chain
+            ; of thought carries across tool results; the chat template only
+            ; renders it for turns after the last user message, so old
+            ; reasoning is stripped server-side.
             keep-reasoning? (and interleaved-thinking
-                                 (seq tool_calls)
-                                 (empty? content)
-                                 (seq reasoning_content)
-                                 (tool-call-round? messages))
+                                 (seq reasoning_content))
             assistant-message (cond-> {:role "assistant" :content content}
                                 (seq tool_calls) (assoc :tool_calls tool_calls)
                                 keep-reasoning? (assoc :reasoning_content reasoning_content))
