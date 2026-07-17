@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Render trajectory JSONL files as a readable HTML conversation viewer.
 
-Usage: scripts/view_trajectories.py file.jsonl [file.jsonl.*.xz ...] [--no-open]
+Usage: scripts/view_trajectories.py file.jsonl [file.jsonl.*.xz ...] [--no-open] [--success-only]
 
 Writes /tmp/trajectory-view.html and opens it in the default browser.
+With --success-only, only successful attempts are rendered.
 
 Records are one line per LLM call, each holding the full message history it
 was prompted with. Per attempt we render the last record's history plus its
@@ -116,17 +117,20 @@ def render_attempt(key, recs):
 
 
 def main():
-    files = [a for a in sys.argv[1:] if a != "--no-open"]
+    success_only = "--success-only" in sys.argv
+    files = [a for a in sys.argv[1:] if a not in ("--no-open", "--success-only")]
     if not files:
         available = "\n  ".join(sorted(glob.glob("trajectories-*.jsonl")
                                        + glob.glob("trajectories-*.xz"))) or "(none found)"
-        sys.exit(f"usage: view_trajectories.py file.jsonl [...] [--no-open]\n"
+        sys.exit(f"usage: view_trajectories.py file.jsonl [...] [--no-open] [--success-only]\n"
                  f"available:\n  {available}")
 
     parts = [f"<meta charset='utf-8'><title>trajectories</title><style>{CSS}</style>",
              "<h1>Trajectories</h1>"]
     for path in files:
         attempts = group_attempts(load(path))
+        if success_only:
+            attempts = [(k, recs) for k, recs in attempts if recs[-1]["success"]]
         nsuccess = sum(1 for _, recs in attempts if recs[-1]["success"])
         parts.append(f"<h2>{esc(path)} <span class='meta'>{nsuccess}/{len(attempts)}"
                      f" attempts successful</span></h2>")
