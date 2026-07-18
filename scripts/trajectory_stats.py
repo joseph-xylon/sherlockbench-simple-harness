@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Per-file counts of successful trajectories (attempts) and completions
-(records) in trajectory JSONL files.
+"""Per-problem-set counts of successful trajectories (attempts) and
+completions (records) in trajectory JSONL files, aggregating rotated
+.jsonl.<ts>.xz segments into their base file.
 
 Usage: scripts/trajectory_stats.py [file.jsonl|file.jsonl.*.xz ...]
 
-With no arguments, reports on all trajectories-*.jsonl in the current
-directory. See TRAJECTORY-FORMAT.md.
+With no arguments, reports on all trajectories-*.jsonl and rotated
+segments in the current directory. See TRAJECTORY-FORMAT.md.
 """
 import glob
 import json
@@ -29,15 +30,30 @@ def stats(path):
             if success:
                 ok_records += 1
                 ok_attempts.add(key)
-    return len(ok_attempts), len(attempts), ok_records, records
+    return ok_attempts, attempts, ok_records, records
 
 
 def main():
-    files = sys.argv[1:] or sorted(glob.glob("trajectories-*.jsonl"))
+    files = sys.argv[1:] or sorted(
+        glob.glob("trajectories-*.jsonl") + glob.glob("trajectories-*.jsonl.*.xz"))
     if not files:
         sys.exit("no trajectory files found")
 
-    rows = [(path, *stats(path)) for path in files]
+    groups = {}
+    for path in files:
+        base = path.split(".jsonl")[0] + ".jsonl"
+        groups.setdefault(base, []).append(path)
+
+    rows = []
+    for base, paths in sorted(groups.items()):
+        ok_a, n_a, ok_r, n_r = set(), set(), 0, 0
+        for path in paths:
+            s_ok_a, s_a, s_ok_r, s_r = stats(path)
+            ok_a |= s_ok_a
+            n_a |= s_a
+            ok_r += s_ok_r
+            n_r += s_r
+        rows.append((base, len(ok_a), len(n_a), ok_r, n_r))
     rows.append(("TOTAL", *(sum(r[i] for r in rows) for i in range(1, 5))))
 
     width = max(len(r[0]) for r in rows)

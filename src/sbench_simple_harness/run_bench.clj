@@ -146,13 +146,13 @@
 
 (defn- rotate-if-large
   "When `file` exceeds max-trajectory-bytes, rename it with a timestamp
-   suffix and compress it with xz in the background."
+   suffix and compress it with xz."
   [file]
   (let [f (java.io.File. file)]
     (when (>= (.length f) max-trajectory-bytes)
       (let [rotated (str file "." (System/currentTimeMillis))]
         (.renameTo f (java.io.File. rotated))
-        (.start (ProcessBuilder. ["xz" rotated]))
+        (.waitFor (.start (doto (ProcessBuilder. ["xz" rotated]) .inheritIO)))
         (println (str "\n### SYSTEM: rotated " file " to " rotated ".xz"))))))
 
 (defn- save-trajectory
