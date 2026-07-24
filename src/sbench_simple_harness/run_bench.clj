@@ -83,7 +83,7 @@
             (recur (into messages' tool-messages) (- max-loop (count tool_calls)) (+ tool-count (count tool_calls))))
           (do
             (println (str "\n### SYSTEM: The tool was used " tool-count " times."))
-            messages'))))))
+            {:messages messages' :tool-count tool-count}))))))
 
 (defn verification [postfn llmfn attempt messages]
   (let [{:keys [arg-spec attempt-id]} attempt]
@@ -127,13 +127,14 @@
    known from the complete-run response (problem-names)."
   [run-id model results problem-names]
   (let [fn-name (into {} (map (juxt :id :function_name) problem-names))]
-    (doseq [{:keys [attempt-id result]} results]
+    (doseq [{:keys [attempt-id result tool-count]} results]
       (spit "run-stats.edn"
             (str (pr-str {:timestamp (str (Instant/now))
                           :run-id run-id
                           :model model
                           :function-name (fn-name attempt-id)
-                          :result result})
+                          :result result
+                          :tool-count tool-count})
                  "\n")
             :append true))))
 
@@ -155,8 +156,9 @@
       (fn [idx attempt]
         (println (str "\n### SYSTEM: Starting attempt " (inc idx) "/" total))
         (let [messages (prompts/make-initial-messages (:test-limit attempt) prompt-config)
-              messages' (investigation postfn llmfn messages attempt
-                                       {:interleaved-thinking interleaved-thinking})]
+              {:keys [messages tool-count]} (investigation postfn llmfn messages attempt
+                                                           {:interleaved-thinking interleaved-thinking})]
           {:attempt-id (:attempt-id attempt)
-           :result (verification postfn llmfn attempt messages')}))
+           :result (verification postfn llmfn attempt messages)
+           :tool-count tool-count}))
       attempts))))

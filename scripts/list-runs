@@ -1,0 +1,40 @@
+#!/usr/bin/env bb
+;; List recent run-ids found in run-stats.edn, most recent first.
+(require '[clojure.edn :as edn]
+         '[clojure.java.io :as io]
+         '[clojure.string :as str])
+
+(def stats-file
+  (io/file (-> *file* io/file .getAbsoluteFile .getParentFile .getParentFile)
+           "run-stats.edn"))
+
+(def limit
+  (if (seq *command-line-args*)
+    (Integer/parseInt (first *command-line-args*))
+    20))
+
+(when-not (.exists stats-file)
+  (println (str "No stats file found at " stats-file))
+  (System/exit 1))
+
+(def rows
+  (->> (line-seq (io/reader stats-file))
+       (remove str/blank?)
+       (map edn/read-string)))
+
+(let [by-run (->> (group-by :run-id rows)
+                  (map (fn [[run-id recs]]
+                         {:run-id run-id
+                          :model (:model (first recs))
+                          :attempts (count recs)
+                          :last-timestamp (apply max-key
+                                                  #(.getTime (java.util.Date/from (java.time.Instant/parse %)))
+                                                  (map :timestamp recs))}))
+                  (sort-by :last-timestamp)
+                  reverse
+                  (take limit))
+      fmt "%-38s%-22s%10s  %s"]
+  (println (format fmt "Run ID" "Model" "Attempts" "Last Timestamp"))
+  (println (apply str (repeat 100 "-")))
+  (doseq [{:keys [run-id model attempts last-timestamp]} by-run]
+    (println (format fmt run-id model attempts last-timestamp))))
