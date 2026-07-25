@@ -28,6 +28,15 @@
         (throw (Exception. (str "Got status " (:status response)))))
       (json/parse-string (:body response) true))))
 
+(defn served-model
+  "What the server actually has loaded, e.g. the gguf path. llama-server
+   ignores the model name we send, so the config :model is only a label —
+   this is the one thing that says which weights answered."
+  [llm-api]
+  (try
+    (-> (http-get llm-api "/models") :data first :id)
+    (catch Exception _ nil)))
+
 (defn py-str
   "Render a value Python-repr style, for human-readable logging."
   [v]

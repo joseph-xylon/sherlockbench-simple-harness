@@ -22,10 +22,16 @@
        (remove str/blank?)
        (map edn/read-string)))
 
-(let [by-run (->> (group-by :run-id rows)
+(let [short-model (fn [recs]
+                    ;; prefer the weights the server reported over the config label
+                    (let [{:keys [served-model model]} (first recs)]
+                      (if served-model
+                        (last (str/split served-model #"/"))
+                        model)))
+      by-run (->> (group-by :run-id rows)
                   (map (fn [[run-id recs]]
                          {:run-id run-id
-                          :model (:model (first recs))
+                          :model (short-model recs)
                           :attempts (count recs)
                           :last-timestamp (apply max-key
                                                   #(.getTime (java.util.Date/from (java.time.Instant/parse %)))
@@ -33,7 +39,7 @@
                   (sort-by :last-timestamp)
                   reverse
                   (take limit))
-      fmt "%-38s%-22s%10s  %s"]
+      fmt "%-38s%-34s%10s  %s"]
   (println (format fmt "Run ID" "Model" "Attempts" "Last Timestamp"))
   (println (apply str (repeat 100 "-")))
   (doseq [{:keys [run-id model attempts last-timestamp]} by-run]

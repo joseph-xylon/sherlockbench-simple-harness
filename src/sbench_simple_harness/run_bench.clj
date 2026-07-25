@@ -122,27 +122,32 @@
             (println "\n### SYSTEM: CORRECT")
             true))))))
 
+;; run-meta is {:run-id :model :served-model :parallel-tool-calls} — the
+;; identity of a run, stamped onto every record so runs stay self-describing
+;; and two runs can be told apart from the data alone. :model is only the
+;; label from config; :served-model is the weights the server reported.
+
 (defn save-run-stats
   "Append one EDN map per attempt to run-stats.edn. Function names only become
    known from the complete-run response (problem-names)."
-  [run-id model results problem-names]
+  [run-meta results problem-names]
   (let [fn-name (into {} (map (juxt :id :function_name) problem-names))]
     (doseq [{:keys [attempt-id result tool-count]} results]
       (spit "run-stats.edn"
-            (str (pr-str {:timestamp (str (Instant/now))
-                          :run-id run-id
-                          :model model
-                          :function-name (fn-name attempt-id)
-                          :result result
-                          :tool-count tool-count})
+            (str (pr-str (merge run-meta
+                                {:timestamp (str (Instant/now))
+                                 :attempt-id attempt-id
+                                 :function-name (fn-name attempt-id)
+                                 :result result
+                                 :tool-count tool-count}))
                  "\n")
             :append true))))
 
-(defn complete-run [postfn run-id model results]
+(defn complete-run [postfn {:keys [run-id model served-model] :as run-meta} results]
   (let [{:keys [score percent problem-names]} (postfn "complete-run" {})
         {:keys [numerator denominator]} score]
-    (save-run-stats run-id model results problem-names)
-    (println (str "\n### SYSTEM: run complete for model `" model "`."))
+    (save-run-stats run-meta results problem-names)
+    (println (str "\n### SYSTEM: run complete for model `" (or served-model model) "`."))
     (println (str "\nRun id: " run-id))
     (println (str "\nFinal score: " numerator "/" denominator
                   " (" (Math/round (double percent)) "%)"))))

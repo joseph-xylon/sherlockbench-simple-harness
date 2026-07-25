@@ -53,6 +53,17 @@
           (throw err))
         (:ok result)))))
 
+(defn parallel-tool-calls?
+  "Whether the model may request several tool calls in one turn. Absent from
+   config means true, which is llama.cpp's own default for a template that
+   supports it — so existing configs keep their behaviour.
+
+   Setting it false makes llama.cpp constrain the grammar to at most one call
+   per turn. The bench budgets total tool calls, not turns, so one call per
+   turn buys more reasoning per call at no extra budget."
+  [config]
+  (not (false? (:parallel-tool-calls config))))
+
 (defn call-qwen
   ([config messages]
    (call-qwen config messages nil))
@@ -64,7 +75,10 @@
             :top_p top-p
             :top_k top-k
             :min_p min-p
-            :presence_penalty presence-penalty}
+            :presence_penalty presence-penalty
+            ;; Sent explicitly rather than left to the server default, so the
+            ;; request says which mode produced the run.
+            :parallel_tool_calls (parallel-tool-calls? config)}
            extra-params)
     {:api-endpoint (:llm-api config)
      :api-key (:api-key config)
@@ -95,12 +109,21 @@ First argument must be one of:
       "start" (let [[_ problem-set attempts] args]
                 (if (nil? problem-set)
                   (print-start-usage)
-                  (let [run-deets (run-bench/start-run postfn problem-set (or attempts 1))
+                  ;; :model is just a label llama-server ignores; ask the server
+                  ;; which weights are actually loaded so runs identify themselves.
+                  (let [served-model (utils/served-model (:llm-api config))
+                        run-deets (run-bench/start-run postfn problem-set (or attempts 1))
+                        run-meta {:run-id (:run-id run-deets)
+                                  :model (:model config)
+                                  :served-model served-model
+                                  :parallel-tool-calls (parallel-tool-calls? config)}
+                        _ (do (println (str "Model loaded on the LLM server: " (or served-model "(couldn't ask)")))
+                              (println (str "Parallel tool calls: " (:parallel-tool-calls run-meta))))
                         results (run-bench/main-loop (assoc run-deets
                                                             :llmfn (partial call-qwen config)
                                                             :prompt-config (:prompt config)
                                                             :interleaved-thinking (:interleaved-thinking config)))]
-                    (run-bench/complete-run (:postfn run-deets) (:run-id run-deets) (:model config) results))))
+                    (run-bench/complete-run (:postfn run-deets) run-meta results))))
       "list"  (utils/show-config config)
       "show_config" (prn (:server-url config))
       (print-usage))))
