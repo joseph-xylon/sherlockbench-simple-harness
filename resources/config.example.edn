@@ -8,6 +8,10 @@
  ;; Omit or set false to always strip reasoning, as with Qwen3.
  :interleaved-thinking true
 
+ ;; Allow several tool calls in one assistant turn. Set false to limit the
+ ;; model to one call per turn. Omit or set true for the original behaviour.
+ :parallel-tool-calls true
+
  ;; System-prompt variant, indices into prompt-variations/identities and
  ;; prompt-variations/instructions. Omitted keys (or the whole map) default to 0.
  :prompt {:identity 0 :instructions 0}

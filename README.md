@@ -6,6 +6,9 @@ It sits in-between the sherlockbench-api and the LLM API.
 ## Config
 We got config merging. First it reads `resources/config.edn`. Then it merges what config you specified with --config flag.
 
+Set `:parallel-tool-calls false` to limit the model to one tool call per turn.
+Omit it or set true for the original behaviour.
+
 ## Development
 
 ### Run

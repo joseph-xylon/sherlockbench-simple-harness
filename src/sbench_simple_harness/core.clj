@@ -97,6 +97,17 @@
                              :strict true
                              :schema schema}}))))
 
+(defn parallel-tool-calls?
+  "Whether the model may request several tool calls in one turn. Absent from
+   config means true, which is llama.cpp's own default for a template that
+   supports it — so existing configs keep their behaviour.
+
+   Setting it false makes llama.cpp constrain the grammar to at most one call
+   per turn. The bench budgets total tool calls, not turns, so one call per
+   turn buys more reasoning per call at no extra budget."
+  [config]
+  (not (false? (:parallel-tool-calls config))))
+
 (defn call-qwen
   ([config messages]
    (call-qwen config messages nil))
@@ -110,6 +121,9 @@
             :min_p min-p
             :presence_penalty presence-penalty
             :reasoning {:enabled true}
+            ;; Sent explicitly rather than left to the server default, so the
+            ;; request says which mode produced the rollout.
+            :parallel_tool_calls (parallel-tool-calls? config)
             }
            (when-let [slot (:slot config)] {:id_slot slot})
            extra-params)
