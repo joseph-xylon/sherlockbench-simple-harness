@@ -5,12 +5,12 @@
 
  ;; Keep reasoning_content in the history while the model is mid tool-calling
  ;; round (only tool calls with empty content since the last user message).
- ;; Omit or set false to always strip reasoning, as with Qwen3.
+ ;; Qwen3.5-9b works best with this set to true
  :interleaved-thinking true
 
- ;; Allow several tool calls in one assistant turn. Set false to limit the
- ;; model to one call per turn. Omit or set true for the original behaviour.
- :parallel-tool-calls true
+ ;; Whether to allow several tool calls in one assistant turn.
+ ;; Qwen3.5-9b works best with this set to false
+ :parallel-tool-calls false
 
  ;; System-prompt variant, indices into prompt-variations/identities and
  ;; prompt-variations/instructions. Omitted keys (or the whole map) default to 0.
