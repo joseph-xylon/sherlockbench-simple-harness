@@ -11,6 +11,13 @@ clj -M -m sbench-simple-harness.core list
 clj -M -m sbench-simple-harness.core start sherlock1/all 1
 ```
 
+`resources/config.edn` is always read first. Pass `--config <file>` before the
+action to merge another EDN file over it; keys set there (including nested ones
+like `:prompt`) replace the base values, everything else is inherited:
+```
+clj -M -m sbench-simple-harness.core --config resources/config-qwen-3.edn start sherlock1/all 1
+```
+
 ### Compile
 Compile your .jar:
 ```

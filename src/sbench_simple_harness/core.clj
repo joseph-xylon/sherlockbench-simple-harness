@@ -32,6 +32,29 @@
   (edn/read-string
    (slurp file-path)))
 
+(def ^:private base-config-path "resources/config.edn")
+
+(defn- deep-merge
+  "Merge maps recursively, so an override file can set a single nested key
+   (e.g. {:prompt {:identity 3}}) without dropping its siblings."
+  [a b]
+  (if (and (map? a) (map? b))
+    (merge-with deep-merge a b)
+    b))
+
+(defn load-config
+  "Read resources/config.edn, then merge any keys from `override-path` on top."
+  [override-path]
+  (cond-> (read-edn-file base-config-path)
+    override-path (deep-merge (read-edn-file override-path))))
+
+(defn parse-args
+  "Pull an optional leading \"--config <file>\" off the front of the args."
+  [args]
+  (if (= "--config" (first args))
+    {:config-path (second args) :args (drop 2 args)}
+    {:config-path nil :args args}))
+
 (def ^:private max-retries 5)
 
 (defn- log-api-error [attempt exception]
@@ -88,7 +111,10 @@
   (println
 "Usage:
 
-First argument must be one of:
+Optional first argument:
+- --config <file> :: merge <file> over resources/config.edn
+
+Next argument must be one of:
 - start :: start a test run
 - list  :: list problem-sets
 "))
@@ -102,8 +128,9 @@ First argument must be one of:
 - attempts-per-problem
 "))
 
-(defn -main [& args]
-  (let [config (read-edn-file "resources/config.edn")
+(defn -main [& argv]
+  (let [{:keys [config-path args]} (parse-args argv)
+        config (load-config config-path)
         postfn (partial utils/post (:server-url config))]
     (case (first args)
       "start" (let [[_ problem-set attempts] args]
