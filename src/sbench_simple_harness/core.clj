@@ -15,7 +15,7 @@
 (def ^:private top-p 0.95)
 (def ^:private top-k 20)
 (def ^:private min-p 0)
-(def ^:private presence-penalty 1.5)
+(def ^:private presence-penalty 0)
 
 ;; openai-clojure coerces the request body against the bundled OpenAI swagger
 ;; spec, which silently strips any params not in the spec (e.g. Qwen's top_k and
